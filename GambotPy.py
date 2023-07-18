@@ -130,6 +130,32 @@ class OddsCheckerDraw(OddsChecker):
                 matchDetails.append(match)
             except:
                 print("Could not display", url)
+                pass
+        return matchDetails
+
+class OddsCheckerNoDraw(OddsChecker):
+    def GetMatchDetails(self, reference):
+        urls = self.GetMainPageLinks(self.Url + reference)
+        matchDetails = []
+        for url in urls:
+            soup = self.GetHTML(url)
+            dom = etree.HTML(str(soup))
+            match = MatchNoDrawDetails()
+            match.Title = dom.xpath("//html/head/title")[0].text
+            match.Url = url
+            try:
+                match.Date = dom.xpath("//html/body/div[11]/div[5]/div/div/header/div[2]/div/p")[0].text
+            except:
+                pass
+            try:
+                team1 = dom.xpath("//html/body/main/div/div[4]/div/section/section/div[1]/article[1]/section[1]/div/div/div/div[1]/div[1]/button")[0].text.replace(" ", "")
+                team2 = dom.xpath("//html/body/main/div/div[4]/div/section/section/div[1]/article[1]/section[1]/div/div/div/div[1]/div[2]/button")[0].text.replace(" ", "")
+                match.Team1 = self.ConvertToFloat(team1)
+                match.Team2 = self.ConvertToFloat(team2)
+                matchDetails.append(match)
+            except Exception as error:
+                print("Could not display", url)
+                pass
         return matchDetails
 
 class MatchDetails(ABC):
@@ -165,19 +191,39 @@ class MatchDrawDetails(MatchDetails):
             print(self.Date)
             print()
 
+class MatchNoDrawDetails(MatchDetails):
+    def Test(self, amount):
+        spread = [1.0, self.Team1 / self.Team2]
+        total = spread[0] + spread[1]
+        prof1 = ((self.Team1 + 1) * spread[0]) - total
+        prof2 = ((self.Team2 + 1) * spread[1]) - total
+        min = prof1
+        if prof2 < min:
+            min = prof2
+        if True:
+            print(self.Title)
+            print("Team 1 - ", (spread[0] * amount / total))
+            print("Team 2 - ", (spread[1] * amount / total))
+            profAdjusted = min * amount / total
+            print(bcolors.OKGREEN + "Profit - ", profAdjusted, bcolors.ENDC)
+            print(self.Date)
+            print()
+
 def FindArbitrage(wbh, reference, amount):
     matchDetails = wbh.GetMatchDetails(reference)
     i = 1
     for match in matchDetails:
         if i % 2 == 0:
             print("Testing match number: ", i)
-            match.Test(amount)
+            #match.Test(amount)
             i += 1
 
 def main():
     just_fix_windows_console()
-    wbh = OddsCheckerDraw()
-    FindArbitrage(wbh, "/football", 100)
+    ocd = OddsCheckerDraw()
+    ocnd = OddsCheckerNoDraw()
+    #FindArbitrage(ocd, "/football", 100)
+    FindArbitrage(ocnd, "/tennis", 100)
         
 
 
