@@ -3,21 +3,7 @@ from lxml import etree
 from abc import ABC, abstractmethod
 from selenium import webdriver
 from colorama import just_fix_windows_console
-import requests
 import concurrent.futures
-
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
 
 class WebPageHandler(ABC):
     reference = ""
@@ -26,26 +12,17 @@ class WebPageHandler(ABC):
     def GetMainPageLinks(self, url):
         pass
 
-    def ScrapeCategory(self, reference, money):
+    def ScrapeCategory(self, reference):
         urls = self.GetMainPageLinks(self.Url + reference)
-        for url in urls:
-            self.ScrapeMatch(url, money)
+        urls = list(dict.fromkeys(urls))
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            executor.map(self.ScrapeMatch, urls)
 
     @abstractmethod
     def ScrapeMatch(self, url):
         pass
 
     def GetHTML(self, url):
-
-        # session = requests.Session()
-        # response = session.get('https://google.com')
-        # headers = ({'User-Agent':
-        #    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 OPR/99.0.0.0'})
-        # webpage = requests.get(url, headers=headers, cookies=response.cookies)
-        # webpage = requests.get(url)
-        # print(BeautifulSoup(webpage.content, 'lxml'))
-        # return BeautifulSoup(webpage.content, 'lxml')
-
         options = webdriver.ChromeOptions()
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
         driver = webdriver.Chrome(options=options)
@@ -67,51 +44,6 @@ class WebPageHandler(ABC):
             return whole - frac if whole < 0 else whole + frac
 
 
-"""class EasyOdds(WebPageHandler):
-    Url = "https://easyodds.com"
-    @abstractmethod
-    def GetMatchDetails(self, reference):
-        pass
-    def GetMainPageLinks(self, url):
-        homePageLinks = []
-        soup = self.GetHTML(url)
-        for link in soup.find_all('a', href=True):
-            if ("-v-" in link['href']):
-                homePageLinks.append(link['href'])
-        return homePageLinks
-
-
-class EasyOddsDraw(EasyOdds):
-    def GetMatchDetails(self, reference):
-        urls = self.GetMainPageLinks(self.Url + reference)
-        matchDetails = []
-        for url in urls:
-            soup = self.GetHTML(url)
-            dom = etree.HTML(str(soup))
-            match = MatchDrawDetails()
-            match.Title = dom.xpath("//html/head/title")[0].text
-            match.Url = url
-            try:
-                match.Date = dom.xpath(
-                    "//html/body/div[11]/div[5]/div/div/header/div[2]/div/p")[0].text
-            except:
-                pass
-            try:
-                team1 = dom.xpath(
-                    "//html/body/div[11]/div[6]/div[3]/div[1]/div[2]/div/div[1]/div[1]/div[5]/div[1]/a")[0].text.replace(" ", "")
-                draw = dom.xpath(
-                    "//html/body/div[11]/div[6]/div[3]/div[1]/div[2]/div/div[2]/div[1]/div[5]/div[1]/a")[0].text.replace(" ", "")
-                team2 = dom.xpath(
-                    "//html/body/div[11]/div[6]/div[3]/div[1]/div[2]/div/div[3]/div[1]/div[5]/div[1]/a")[0].text.replace(" ", "")
-                match.Team1 = self.ConvertToFloat(team1)
-                match.Draw = self.ConvertToFloat(draw)
-                match.Team2 = self.ConvertToFloat(team2)
-                matchDetails.append(match)
-            except Exception as error:
-                print(error)
-        return matchDetails"""
-
-
 class OddsChecker(WebPageHandler):
     Url = "https://www.oddschecker.com"
 
@@ -125,11 +57,16 @@ class OddsChecker(WebPageHandler):
 
     @abstractmethod
     def ScrapeMatch(self, url):
-        pass 
+        pass
 
 
 class OddsCheckerDraw(OddsChecker):
-    def ScrapeMatch(self, url, money):
+    money = 100
+
+    def __init__(self, money):
+        self.money = money
+
+    def ScrapeMatch(self, url):
         soup = self.GetHTML(url)
         dom = etree.HTML(str(soup))
         match = MatchDrawDetails()
@@ -150,14 +87,18 @@ class OddsCheckerDraw(OddsChecker):
             match.Team1 = self.ConvertToFloat(team1)
             match.Draw = self.ConvertToFloat(draw)
             match.Team2 = self.ConvertToFloat(team2)
-            match.Test(money)
+            match.Test(self.money)
         except:
-            print("Could not display", url)
             pass
 
 
 class OddsCheckerNoDraw(OddsChecker):
-    def ScrapeMatch(self, url, money):
+    money = 100
+
+    def __init__(self, money):
+        self.money = money
+
+    def ScrapeMatch(self, url):
         soup = self.GetHTML(url)
         dom = etree.HTML(str(soup))
         match = MatchNoDrawDetails()
@@ -175,9 +116,8 @@ class OddsCheckerNoDraw(OddsChecker):
                 "//html/body/main/div/div[4]/div/section/section/div[1]/article[1]/section[1]/div/div/div/div[1]/div[2]/button")[0].text.replace(" ", "")
             match.Team1 = self.ConvertToFloat(team1)
             match.Team2 = self.ConvertToFloat(team2)
-            match.Test(money)
-        except Exception as error:
-            print("Could not display", url)
+            match.Test(self.money)
+        except:
             pass
 
 
@@ -207,15 +147,13 @@ class MatchDrawDetails(MatchDetails):
             min = profd
         if prof2 < min:
             min = prof2
-        if True:
-            print(self.Title)
-            print("Team 1 - ", (spread[0] * money / total))
-            print("Draw - ", (spread[1] * money / total))
-            print("Team 2 - ", (spread[2] * money / total))
+        if min > 0:
+            team1Val = spread[0] * money / total
+            drawVal = spread[1] * money / total
+            team2Val = spread[2] * money / total
             profAdjusted = min * money / total
-            print(bcolors.OKGREEN + "Profit - ", profAdjusted, bcolors.ENDC)
-            print(self.Date)
-            print()
+            print("%s\nTeam 1 - %f\nDraw - %f\nTeam 2 - %f\n\033[92mProfit - %f\033[0m\n%s\n%s\n\n" % (self.Title,
+                  team1Val, drawVal, team2Val, profAdjusted, self.Date, self.Url))
 
 
 class MatchNoDrawDetails(MatchDetails):
@@ -227,26 +165,20 @@ class MatchNoDrawDetails(MatchDetails):
         min = prof1
         if prof2 < min:
             min = prof2
-        if True:
-            print(self.Title)
-            print("Team 1 - ", (spread[0] * money / total))
-            print("Team 2 - ", (spread[1] * money / total))
+        if min > 0:
+            team1Val = spread[0] * money / total
+            team2Val = spread[1] * money / total
             profAdjusted = min * money / total
-            print(bcolors.OKGREEN + "Profit - ", profAdjusted, bcolors.ENDC)
-            print(self.Date)
-            print()
-
-
-def FindArbitrage(wbh, reference, money):
-    matchDetails = wbh.ScrapeCategory(reference, money)
+            print("%s\nTeam 1 - %f\nTeam 2 - %f\n\033[92mProfit - %f\033[0m\n%s\n%s\n\n" % (self.Title,
+                  team1Val, team2Val, profAdjusted, self.Date, self.Url))
 
 
 def main():
     just_fix_windows_console()
-    ocd = OddsCheckerDraw()
-    ocnd = OddsCheckerNoDraw()
-    # FindArbitrage(ocd, "/football", 100)
-    FindArbitrage(ocnd, "/tennis", 100)
+    ocd = OddsCheckerDraw(100)
+    ocnd = OddsCheckerNoDraw(100)
+    ocd.ScrapeCategory("/football")
+    #ocnd.ScrapeCategory("/tennis")
 
 
 main()
