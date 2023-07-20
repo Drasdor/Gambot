@@ -13,7 +13,8 @@ class WebPageHandler(ABC):
         pass
 
     def ScrapeCategory(self, reference):
-        urls = self.GetMainPageLinks(self.Url + reference)
+        print("Checking", reference)
+        urls = self.GetMainPageLinks(self.Url + "/" + reference)
         urls = list(dict.fromkeys(urls))
         with concurrent.futures.ThreadPoolExecutor() as executor:
             executor.map(self.ScrapeMatch, urls)
@@ -51,7 +52,7 @@ class OddsChecker(WebPageHandler):
         homePageLinks = []
         soup = self.GetHTML(url)
         for link in soup.find_all('a', href=True):
-            if ("-v-" in link['href']):
+            if ("-v-" in link['href'] or "-at-" in link['href']):
                 homePageLinks.append(self.Url + "/" + link['href'])
         return homePageLinks
 
@@ -74,7 +75,7 @@ class OddsCheckerDraw(OddsChecker):
         match.Url = url
         try:
             match.Date = dom.xpath(
-                "//html/body/div[11]/div[5]/div/div/header/div[2]/div/p")[0].text
+                "//html/body/main/div/div[2]/div/div[2]/time")[0].text
         except:
             pass
         try:
@@ -89,6 +90,7 @@ class OddsCheckerDraw(OddsChecker):
             match.Team2 = self.ConvertToFloat(team2)
             match.Test(self.money)
         except:
+            print("couldnt scrape " + url)
             pass
 
 
@@ -106,7 +108,7 @@ class OddsCheckerNoDraw(OddsChecker):
         match.Url = url
         try:
             match.Date = dom.xpath(
-                "//html/body/div[11]/div[5]/div/div/header/div[2]/div/p")[0].text
+                "//html/body/main/div/div[2]/div/div[2]/time")[0].text
         except:
             pass
         try:
@@ -118,6 +120,7 @@ class OddsCheckerNoDraw(OddsChecker):
             match.Team2 = self.ConvertToFloat(team2)
             match.Test(self.money)
         except:
+            print("couldnt scrape " + url)
             pass
 
 
@@ -175,10 +178,23 @@ class MatchNoDrawDetails(MatchDetails):
 
 def main():
     just_fix_windows_console()
-    ocd = OddsCheckerDraw(100)
-    ocnd = OddsCheckerNoDraw(100)
-    ocd.ScrapeCategory("/football")
-    #ocnd.ScrapeCategory("/tennis")
+    print("WARNING: close all other applications before starting this!!!")
+    userInput = input("How much do you want to bet?\n")
+    try:
+        money = float(userInput)
+    except:
+        print("Betting 100")
+        money = 100
+    ocd = OddsCheckerDraw(money)
+    ocnd = OddsCheckerNoDraw(money)
+    ocd.ScrapeCategory("football")
+    ocd.ScrapeCategory("football/womens-international")
+    ocnd.ScrapeCategory("tennis")
+    ocnd.ScrapeCategory("american-football")
+    ocd.ScrapeCategory("cricket")
+    ocd.ScrapeCategory("boxing")
+    ocnd.ScrapeCategory("ufc-mma")
+    print("End of Search")
 
 
 main()
