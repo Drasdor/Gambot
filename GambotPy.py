@@ -33,7 +33,7 @@ class WebPageHandler(ABC):
 
     def ConvertToFloat(self, frac_str):
         try:
-            return float(frac_str)
+            return (float(frac_str) - 1)
         except ValueError:
             num, denom = frac_str.split('/')
             try:
@@ -90,7 +90,6 @@ class OddsCheckerDraw(OddsChecker):
             match.Team2 = self.ConvertToFloat(team2)
             match.Test(self.money)
         except:
-            print("couldnt scrape " + url)
             pass
 
 
@@ -120,7 +119,6 @@ class OddsCheckerNoDraw(OddsChecker):
             match.Team2 = self.ConvertToFloat(team2)
             match.Test(self.money)
         except:
-            print("couldnt scrape " + url)
             pass
 
 
@@ -195,6 +193,7 @@ def main():
     ocd.ScrapeCategory("boxing")
     ocnd.ScrapeCategory("ufc-mma")
     print("End of Search")
+    input("Press enter to close\n")
 
 
 main()
